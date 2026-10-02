@@ -1,0 +1,39 @@
+name: Build Windows app
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build exe
+        run: |
+          python -m pip install pyinstaller
+          python -m pyinstaller --noconsole --onefile vpn_client.py
+
+      - name: Download Xray core
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/XTLS/Xray-core/releases/latest/download/Xray-windows-64.zip" -OutFile xray.zip
+          Expand-Archive xray.zip -DestinationPath xray
+
+      - name: Assemble package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path package | Out-Null
+          Copy-Item dist\vpn_client.exe package\
+          Copy-Item xray\xray.exe package\
+          Copy-Item xray\geoip.dat, xray\geosite.dat package\ -ErrorAction SilentlyContinue
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vpn_client_windows
+          path: package/
